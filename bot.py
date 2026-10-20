@@ -231,8 +231,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # ----------------------------------------------------
 # UI コンポーネント定義
 # ----------------------------------------------------
-
-# ① ガチャ結果の下に出る「もう一度ガチャを引く」ボタン
 class GachaRetryView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -252,8 +250,6 @@ class GachaRetryView(discord.ui.View):
         embed = discord.Embed(title="🦑 ブキ抽選結果 🦑", description="\n".join(results), color=discord.Color.green())
         await interaction.response.send_message(embed=embed, view=GachaRetryView())
 
-
-# ② 「確認」ボタンを押したときに表示されるドロップダウン付きView（本人だけに表示）
 class MemberSelectView(discord.ui.View):
     def __init__(self, guild_id: int):
         super().__init__(timeout=180)
@@ -282,7 +278,6 @@ class MemberSelectView(discord.ui.View):
 
         remove_guild_member(guild_id, selected_member)
         
-        # 削除された状態の新しいドロップダウンで画面を更新
         new_view = MemberSelectView(guild_id)
         members = get_guild_members(guild_id)
         await interaction.response.edit_message(
@@ -290,8 +285,6 @@ class MemberSelectView(discord.ui.View):
             view=new_view
         )
 
-
-# ③ ニックネーム登録モーダル（入力フォーム）
 class FeedbackModal(discord.ui.Modal, title="ニックネーム登録"):
     name = discord.ui.TextInput(
         label="ニックネーム",
@@ -311,13 +304,10 @@ class FeedbackModal(discord.ui.Modal, title="ニックネーム登録"):
             ephemeral=True
         )
 
-
-# ④ メインパネルView（ボタンのみでスッキリ）
 class TestView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    # ブキガチャボタン
     @discord.ui.button(label="ブキガチャ", style=discord.ButtonStyle.primary, emoji="🦑", row=0)
     async def primary_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild_id = interaction.guild_id
@@ -333,12 +323,10 @@ class TestView(discord.ui.View):
         embed = discord.Embed(title="🦑 ブキ抽選結果 🦑", description="\n".join(results), color=discord.Color.blurple())
         await interaction.response.send_message(embed=embed, view=GachaRetryView())
 
-    # ニックネーム登録ボタン
     @discord.ui.button(label="ニックネーム登録", style=discord.ButtonStyle.success, emoji="📝", row=0)
     async def open_modal(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(FeedbackModal())
 
-    # 確認ボタン（押すとドロップダウン画面が出現）
     @discord.ui.button(label="確認", style=discord.ButtonStyle.secondary, emoji="👥", row=0)
     async def confirm_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild_id = interaction.guild_id
@@ -350,30 +338,13 @@ class TestView(discord.ui.View):
             ephemeral=True
         )
 
-
 # ----------------------------------------------------
 # Bot イベント＆コマンド
 # ----------------------------------------------------
-# @bot.event
-# async def on_ready():
-#     print(f"Logged in as {bot.user}")
-#     try:
-#         if TEST_GUILD_ID:
-#             guild_obj = discord.Object(id=TEST_GUILD_ID)
-#             bot.tree.copy_global_to(guild=guild_obj)
-#             synced = await bot.tree.sync(guild=guild_obj)
-#             print(f"Synced {len(synced)} command(s) to test guild.")
-#         else:
-#             synced = await bot.tree.sync()
-#             print(f"Synced {len(synced)} command(s) globally.")
-#     except Exception as e:
-#         print(f"Sync error: {e}")
-
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
     try:
-        # グローバル（すべてのサーバー）にコマンドを同期
         synced = await bot.tree.sync()
         print(f"Synced {len(synced)} command(s) globally.")
     except Exception as e:
@@ -381,7 +352,6 @@ async def on_ready():
 
 @bot.tree.command(name="gacha", description="スプラトゥーンブキガチャパネルを表示します")
 async def gacha(interaction: discord.Interaction):
-    # /gacha を呼び出した時に、自動でメンバーをリセットする
     reset_guild_members(interaction.guild_id)
 
     embed = discord.Embed(
@@ -390,7 +360,6 @@ async def gacha(interaction: discord.Interaction):
         color=discord.Color.blurple()
     )
     embed.set_footer(text="Discord Splatoon Buki Gacha Bot")
-    # ドロップダウンのないシンプルなViewを渡す
     await interaction.response.send_message(embed=embed, view=TestView())
 
 @bot.tree.command(name="reset", description="登録されているメンバーをすべてリセットします")
@@ -398,13 +367,9 @@ async def reset_command(interaction: discord.Interaction):
     reset_guild_members(interaction.guild_id)
     await interaction.response.send_message("🧹 データベースに登録されていたメンバーをすべてリセットしました！", ephemeral=True)
 
-if __name__ == "__main__":
-    if not DISCORD_TOKEN:
-        print("エラー: DISCORD_TOKEN が設定されていません。")
-    else:
-        bot.run(DISCORD_TOKEN)
-
-# Renderのポートタイムアウト回避用ダミーWebサーバー
+# ----------------------------------------------------
+# Renderポートタイムアウト回避用ダミーWebサーバー（起動処理の前に関数を定義）
+# ----------------------------------------------------
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -416,4 +381,11 @@ def run_dummy_server():
     server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-threading.Thread(target=run_dummy_server, daemon=True).start()
+if __name__ == "__main__":
+    # ボットを起動する前に、裏でダミーサーバーをスレッドで動かす
+    threading.Thread(target=run_dummy_server, daemon=True).start()
+
+    if not DISCORD_TOKEN:
+        print("エラー: DISCORD_TOKEN が設定されていません。")
+    else:
+        bot.run(DISCORD_TOKEN)
