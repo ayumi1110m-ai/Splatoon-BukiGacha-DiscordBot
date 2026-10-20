@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+
 # .env ファイルから環境変数を読み込む
 load_dotenv()
 
